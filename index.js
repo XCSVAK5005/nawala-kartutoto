@@ -5,8 +5,6 @@ const cors = require("cors");
 const app = express();
 
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
 // ROOT
 app.get("/", (req, res) => {
@@ -16,19 +14,24 @@ app.get("/", (req, res) => {
   });
 });
 
-// MAIN API
-app.post("/check", async (req, res) => {
+/**
+ * 🔥 ENDPOINT DOMAIN
+ * contoh:
+ * /check/google.com
+ */
+app.get("/check/:domain", async (req, res) => {
   try {
-    const { url } = req.body;
+    const domain = req.params.domain;
 
-    if (!url) {
+    if (!domain) {
       return res.status(400).json({
-        error: "URL REQUIRED"
+        success: false,
+        error: "DOMAIN REQUIRED"
       });
     }
 
     const formData = new URLSearchParams();
-    formData.append("website_url", url);
+    formData.append("website_url", domain);
 
     const response = await axios.post(
       "https://stgapi.nigmaengine.com/health_check/v1/check/nawala/url",
@@ -42,14 +45,14 @@ app.post("/check", async (req, res) => {
 
     return res.json({
       success: true,
-      url: url,
-      result: response.data.result_message || "UNKNOWN"
+      domain: domain,
+      result: (response.data.result_message || "UNKNOWN").toUpperCase()
     });
 
   } catch (err) {
     return res.status(500).json({
       success: false,
-      error: "FAILED TO CHECK"
+      error: "FAILED TO CHECK DOMAIN"
     });
   }
 });
