@@ -10,49 +10,84 @@ app.use(cors());
 app.get("/", (req, res) => {
   res.json({
     status: "OK",
-    message: "NAWALA API RUNNING"
+    message: "NAWALA API BULK READY"
   });
 });
 
-/**
- * 🔥 ENDPOINT DOMAIN
- * contoh:
- * /check/google.com
- */
+// 🔹 SINGLE DOMAIN
 app.get("/check/:domain", async (req, res) => {
   try {
     const domain = req.params.domain;
-
-    if (!domain) {
-      return res.status(400).json({
-        success: false,
-        error: "DOMAIN REQUIRED"
-      });
-    }
 
     const formData = new URLSearchParams();
     formData.append("website_url", domain);
 
     const response = await axios.post(
       "https://stgapi.nigmaengine.com/health_check/v1/check/nawala/url",
-      formData,
-      {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded"
-        }
-      }
+      formData
     );
 
-    return res.json({
+    res.json({
       success: true,
-      domain: domain,
+      domain,
       result: (response.data.result_message || "UNKNOWN").toUpperCase()
     });
 
-  } catch (err) {
-    return res.status(500).json({
+  } catch {
+    res.status(500).json({ success: false });
+  }
+});
+
+// 🔥 BULK DOMAIN
+app.get("/bulk", async (req, res) => {
+  try {
+    const { domains } = req.query;
+
+    if (!domains) {
+      return res.status(400).json({
+        success: false,
+        error: "DOMAINS PARAM REQUIRED"
+      });
+    }
+
+    const domainList = domains.split(",").map(d => d.trim()).filter(Boolean);
+
+    // PARALLEL CHECK
+    const results = await Promise.all(
+      domainList.map(async (domain) => {
+        try {
+          const formData = new URLSearchParams();
+          formData.append("website_url", domain);
+
+          const response = await axios.post(
+            "https://stgapi.nigmaengine.com/health_check/v1/check/nawala/url",
+            formData
+          );
+
+          return {
+            domain,
+            result: (response.data.result_message || "UNKNOWN").toUpperCase()
+          };
+
+        } catch {
+          return {
+            domain,
+            result: "ERROR"
+          };
+        }
+      })
+    );
+
+    res.json({
+      success: true,
+      total: results.length,
+      results
+    });
+
+  } catch {
+    res.status(500).json({
       success: false,
-      error: "FAILED TO CHECK DOMAIN"
+      error: "FAILED BULK CHECK"
     });
   }
 });
